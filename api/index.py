@@ -217,8 +217,25 @@ class handler(BaseHTTPRequestHandler):
         try:
             path = self.path
             
-            if path in ["/", "/api"]:
-                # Health check with detailed LLM status
+            if path == "/":
+                # Serve the web interface
+                try:
+                    # Read the HTML file
+                    html_path = os.path.join(os.path.dirname(__file__), "chat.html")
+                    with open(html_path, 'r', encoding='utf-8') as f:
+                        html_content = f.read()
+                    
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'text/html')
+                    self._set_cors_headers()
+                    self.end_headers()
+                    self.wfile.write(html_content.encode())
+                    
+                except Exception as e:
+                    self._send_error_response(500, f"Failed to load web interface: {str(e)}")
+                
+            elif path in ["/api", "/status"]:
+                # API Health check with detailed LLM status
                 try:
                     parallel_query = get_parallel_query()
                     available_models = parallel_query.get_available_models()
@@ -242,7 +259,8 @@ class handler(BaseHTTPRequestHandler):
                     "initialization_details": initialization_status,
                     "timestamp": datetime.now().isoformat(),
                     "endpoints": {
-                        "GET /": "Health check and system status",
+                        "GET /": "Web interface for Voice RAG system",
+                        "GET /api": "API health check and system status",
                         "POST /query": "Process Voice RAG queries about Sunmarke School",
                         "GET /models": "List available LLM models"
                     },
