@@ -1,17 +1,10 @@
 """
-Python serverless function entry point for Vercel deployment.
-Exposes the Voice RAG functionality via REST API.
+Simple test version for debugging Vercel serverless function.
 """
 
-import os
-import sys
 import json
-import asyncio
-from datetime import datetime
 from http.server import BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
-
-from llm.chains import get_parallel_query
+from datetime import datetime
 
 class handler(BaseHTTPRequestHandler):
     def _set_cors_headers(self):
@@ -30,14 +23,6 @@ class handler(BaseHTTPRequestHandler):
         response_json = json.dumps(data, indent=2)
         self.wfile.write(response_json.encode())
     
-    def _send_error_response(self, status_code, message):
-        """Send error response."""
-        error_data = {
-            "error": message,
-            "timestamp": datetime.now().isoformat()
-        }
-        self._send_json_response(status_code, error_data)
-    
     def do_OPTIONS(self):
         """Handle CORS preflight requests."""
         self.send_response(200)
@@ -47,100 +32,58 @@ class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         """Handle GET requests."""
         try:
-            parsed_url = urlparse(self.path)
-            path = parsed_url.path
-            
-            if path == "/" or path == "/api":
-                # Health check endpoint
-                parallel_query = get_parallel_query()
-                available_models = parallel_query.get_available_models()
-                
-                response_data = {
-                    "status": "healthy",
-                    "message": f"Voice RAG API is running with {len(available_models)} models",
-                    "timestamp": datetime.now().isoformat(),
-                    "available_models": available_models,
-                    "endpoints": {
-                        "GET /": "Health check",
-                        "POST /query": "Process Voice RAG queries about Sunmarke School",
-                        "GET /models": "List available LLM models"
-                    }
+            response_data = {
+                "status": "healthy",
+                "message": "Voice RAG API test version is running",
+                "timestamp": datetime.now().isoformat(),
+                "endpoints": {
+                    "GET /": "Health check (this endpoint)",
+                    "POST /query": "Test query endpoint"
+                },
+                "debug_info": {
+                    "python_path": __file__,
+                    "environment": "Vercel Serverless"
                 }
-                self._send_json_response(200, response_data)
-                
-            elif path == "/models" or path == "/api/models":
-                # Get available models endpoint
-                parallel_query = get_parallel_query()
-                models = parallel_query.get_available_models()
-                
-                response_data = {
-                    "available_models": models,
-                    "total_count": len(models),
-                    "timestamp": datetime.now().isoformat()
-                }
-                self._send_json_response(200, response_data)
-                
-            else:
-                self._send_error_response(404, f"Endpoint not found: {path}")
+            }
+            self._send_json_response(200, response_data)
                 
         except Exception as e:
-            self._send_error_response(500, f"Internal server error: {str(e)}")
+            error_data = {
+                "error": f"GET error: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+            self._send_json_response(500, error_data)
     
     def do_POST(self):
         """Handle POST requests."""
         try:
-            parsed_url = urlparse(self.path)
-            path = parsed_url.path
-            
-            if path == "/query" or path == "/api/query":
-                # Process query endpoint
-                content_length = int(self.headers.get('Content-Length', 0))
-                if content_length == 0:
-                    self._send_error_response(400, "Request body is required")
-                    return
-                
+            # Read request body
+            content_length = int(self.headers.get('Content-Length', 0))
+            if content_length > 0:
                 post_data = self.rfile.read(content_length)
                 try:
                     request_data = json.loads(post_data.decode())
-                except json.JSONDecodeError:
-                    self._send_error_response(400, "Invalid JSON in request body")
-                    return
-                
-                query = request_data.get("query", "").strip()
-                if not query:
-                    self._send_error_response(400, "Query cannot be empty. Please ask something about Sunmarke School.")
-                    return
-                
-                # Add context to query for better RAG responses
-                enhanced_query = f"""Using the Sunmarke School website content, please answer the following question: {query}
-                
-                If the information is not available in the content, please say so clearly."""
-                
-                # Get the parallel query instance and process
-                parallel_query = get_parallel_query()
-                
-                # Run async function in sync context
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    results = loop.run_until_complete(parallel_query.query_all(enhanced_query))
-                finally:
-                    loop.close()
-                
-                response_data = {
-                    "query": query,
-                    "results": results,
-                    "timestamp": datetime.now().isoformat(),
-                    "total_models": len(results),
-                    "note": "Responses are based on Sunmarke School website content"
-                }
-                self._send_json_response(200, response_data)
-                
+                    query = request_data.get("query", "")
+                except:
+                    query = "Invalid JSON"
             else:
-                self._send_error_response(404, f"POST endpoint not found: {path}")
+                query = "No query provided"
+            
+            response_data = {
+                "status": "received",
+                "query": query,
+                "response": "This is a test response. LLM integration will be added once basic functionality is confirmed.",
+                "timestamp": datetime.now().isoformat(),
+                "note": "Test version - not connected to LLMs yet"
+            }
+            self._send_json_response(200, response_data)
                 
         except Exception as e:
-            self._send_error_response(500, f"Query processing failed: {str(e)}")
+            error_data = {
+                "error": f"POST error: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+            self._send_json_response(500, error_data)
     
     def log_message(self, format, *args):
         """Override to reduce log noise."""
