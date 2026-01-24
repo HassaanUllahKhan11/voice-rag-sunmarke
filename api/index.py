@@ -34,13 +34,10 @@ class LLMChain:
         logger.info(f"🔧 Creating AsyncOpenAI client for {name} with base_url: {base_url}")
         
         try:
+            # Simple OpenRouter-compatible AsyncOpenAI client
             self.client = AsyncOpenAI(
                 api_key=api_key,
-                base_url=base_url,
-                default_headers={
-                    "HTTP-Referer": "https://voice-rag-sunmarke.vercel.app",
-                    "X-Title": "Voice RAG Sunmarke API"
-                }
+                base_url=base_url
             )
             logger.info(f"✅ AsyncOpenAI client created successfully for {name}")
         except Exception as client_error:
