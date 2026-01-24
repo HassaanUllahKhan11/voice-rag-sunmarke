@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sunmarke School Voice RAG - Ask Anything!</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #333;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+            font-size: 2em;
+        }
+        
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.1em;
+        }
+        
+        .container {
+            flex: 1;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .input-section {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        #queryInput {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        #queryInput:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        #askButton {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        
+        #askButton:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        #askButton:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: white;
+            font-size: 18px;
+        }
+        
+        .responses {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+        }
+        
+        .model-response {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            transition: transform 0.3s ease;
+        }
+        
+        .model-response:hover {
+            transform: translateY(-5px);
+        }
+        
+        .model-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+        
+        .model-icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        
+        .gemini { color: #4285F4; }
+        .deepseek { color: #FF6B6B; }
+        .kimi { color: #4ECDC4; }
+        
+        .model-name {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .model-text {
+            line-height: 1.6;
+            color: #2c3e50;
+            font-size: 15px;
+        }
+        
+        .error {
+            background: #ff7675;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        
+        .examples {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .example-questions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        
+        .example-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .example-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .status-info {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        
+        @media (max-width: 768px) {
+            .input-group {
+                flex-direction: column;
+            }
+            
+            #queryInput {
+                margin-bottom: 10px;
+            }
+            
+            .responses {
+                grid-template-columns: 1fr;
+            }
+            
+            .example-questions {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎓 Sunmarke School Voice RAG</h1>
+        <p>Ask anything about Sunmarke School and get responses from 3 AI models!</p>
+    </div>
+    
+    <div class="container">
+        <div class="status-info" id="statusInfo">
+            Loading system status...
+        </div>
+        
+        <div class="input-section">
+            <div class="input-group">
+                <input type="text" 
+                       id="queryInput" 
+                       placeholder="Ask about Sunmarke School programs, facilities, admission, etc..."
+                       maxlength="500">
+                <button id="askButton" onclick="askQuestion()">Ask AI Models</button>
+            </div>
+            
+            <div class="examples">
+                <p style="color: #7f8c8d; margin-bottom: 10px;">💡 Try these example questions:</p>
+                <div class="example-questions">
+                    <span class="example-btn" onclick="setExample('What programs does Sunmarke School offer?')">School Programs</span>
+                    <span class="example-btn" onclick="setExample('How do I apply to Sunmarke School?')">Admissions</span>
+                    <span class="example-btn" onclick="setExample('What facilities does Sunmarke School have?')">Facilities</span>
+                    <span class="example-btn" onclick="setExample('What makes Sunmarke School special?')">Why Choose Sunmarke</span>
+                    <span class="example-btn" onclick="setExample('What age groups does Sunmarke School serve?')">Age Groups</span>
+                </div>
+            </div>
+        </div>
+        
+        <div id="loadingDiv" class="loading" style="display: none;">
+            <div>🤖 AI models are thinking...</div>
+            <div style="margin-top: 10px; font-size: 14px;">Querying Gemini, DeepSeek, and Kimi simultaneously</div>
+        </div>
+        
+        <div id="responsesDiv" class="responses"></div>
+        
+        <div id="errorDiv"></div>
+    </div>
+
+    <script>
+        // Check system status on load
+        async function checkStatus() {
+            try {
+                const response = await fetch('/');
+                const data = await response.json();
+                const statusDiv = document.getElementById('statusInfo');
+                
+                if (data.available_models && data.available_models.length > 0) {
+                    statusDiv.innerHTML = `✅ System Ready | ${data.available_models.length} AI models active: ${data.available_models.join(', ')}`;
+                    statusDiv.style.background = 'rgba(46, 204, 113, 0.1)';
+                } else {
+                    statusDiv.innerHTML = '⚠️ System initializing... Some AI models may not be ready yet.';
+                    statusDiv.style.background = 'rgba(241, 196, 15, 0.1)';
+                }
+            } catch (error) {
+                document.getElementById('statusInfo').innerHTML = '❌ Unable to check system status';
+            }
+        }
+        
+        function setExample(question) {
+            document.getElementById('queryInput').value = question;
+            document.getElementById('queryInput').focus();
+        }
+        
+        // Allow Enter key to submit
+        document.getElementById('queryInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                askQuestion();
+            }
+        });
+        
+        async function askQuestion() {
+            const query = document.getElementById('queryInput').value.trim();
+            if (!query) {
+                alert('Please enter a question about Sunmarke School!');
+                return;
+            }
+            
+            const askButton = document.getElementById('askButton');
+            const loadingDiv = document.getElementById('loadingDiv');
+            const responsesDiv = document.getElementById('responsesDiv');
+            const errorDiv = document.getElementById('errorDiv');
+            
+            // Reset UI
+            askButton.disabled = true;
+            askButton.textContent = 'Processing...';
+            loadingDiv.style.display = 'block';
+            responsesDiv.innerHTML = '';
+            errorDiv.innerHTML = '';
+            
+            try {
+                const response = await fetch('/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: query })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Display responses
+                displayResponses(data);
+                
+            } catch (error) {
+                errorDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            } finally {
+                askButton.disabled = false;
+                askButton.textContent = 'Ask AI Models';
+                loadingDiv.style.display = 'none';
+            }
+        }
+        
+        function displayResponses(data) {
+            const responsesDiv = document.getElementById('responsesDiv');
+            const results = data.results || {};
+            
+            const modelConfig = {
+                'gemini': { icon: '🤖', class: 'gemini', name: 'Gemini' },
+                'deepseek': { icon: '🔮', class: 'deepseek', name: 'DeepSeek' },
+                'kimi': { icon: '🌙', class: 'kimi', name: 'Kimi' }
+            };
+            
+            let html = '';
+            
+            for (const [modelKey, result] of Object.entries(results)) {
+                const config = modelConfig[modelKey] || { icon: '🤖', class: 'default', name: modelKey };
+                const isError = result.error || false;
+                
+                html += `
+                    <div class="model-response">
+                        <div class="model-header">
+                            <span class="model-icon">${config.icon}</span>
+                            <span class="model-name ${config.class}">${config.name}</span>
+                        </div>
+                        <div class="model-text ${isError ? 'error' : ''}">
+                            ${isError ? '❌ ' + result.response : result.response}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            responsesDiv.innerHTML = html;
+        }
+        
+        // Initialize
+        checkStatus();
+    </script>
+</body>
+</html>
