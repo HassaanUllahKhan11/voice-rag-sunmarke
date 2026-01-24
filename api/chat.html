@@ -273,7 +273,7 @@
             left: 0;
             right: 0;
             height: 3px;
-            background: linear-gradient(90deg, var(--model-color, #667eea), var(--model-color-light, #764ba2));
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
         }
         
         .model-response:hover {
@@ -295,38 +295,38 @@
             margin-right: 15px;
             padding: 8px;
             border-radius: 12px;
-            background: rgba(var(--model-rgb), 0.1);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1), rgba(240, 147, 251, 0.1));
             transition: all 0.3s ease;
         }
         
         .model-response:hover .model-icon {
             transform: scale(1.1) rotate(5deg);
-            background: rgba(var(--model-rgb), 0.2);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2), rgba(240, 147, 251, 0.2));
         }
         
         .gemini { 
-            color: #4285F4; 
-            --model-color: #4285F4;
-            --model-color-light: #66A3FF;
-            --model-rgb: 66, 133, 244;
+            color: #667eea; 
+            --model-color: #667eea;
+            --model-color-light: #764ba2;
+            --model-rgb: 102, 126, 234;
         }
         .deepseek { 
-            color: #FF6B6B; 
-            --model-color: #FF6B6B;
-            --model-color-light: #FF8E8E;
-            --model-rgb: 255, 107, 107;
+            color: #764ba2; 
+            --model-color: #764ba2;
+            --model-color-light: #f093fb;
+            --model-rgb: 118, 75, 162;
         }
         .kimi { 
-            color: #4ECDC4; 
-            --model-color: #4ECDC4;
-            --model-color-light: #7ED6D0;
-            --model-rgb: 78, 205, 196;
+            color: #f093fb; 
+            --model-color: #f093fb;
+            --model-color-light: #667eea;
+            --model-rgb: 240, 147, 251;
         }
         
         .model-name {
             font-size: 22px;
             font-weight: 700;
-            background: linear-gradient(135deg, var(--model-color), var(--model-color-light));
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
