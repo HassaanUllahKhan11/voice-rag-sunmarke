@@ -76,3 +76,4 @@ node_modules/
 # Local data
 data/
 *.html
+.vercel
