@@ -1,17 +1,2 @@
-# Exclude non-API Python files that could confuse Vercel
-app.py
-ingest.py
-llm_chains.py
-retriever.py
-test_streamlit.py
-utils.py
-verify_setup.py
-run_app.bat
-
-# Exclude local data and development files
-data/
-chroma_db/
-__pycache__/
-.env
-*.pyc
-.streamlit/
+*.py
+!api/**/*.py
