@@ -118,9 +118,16 @@
             z-index: 1;
         }
         
-        #queryInput {
+        .voice-input-container {
+            position: relative;
+            display: flex;
+            align-items: center;
             flex: 1;
-            padding: 18px 24px;
+        }
+        
+        #queryInput {
+            width: 100%;
+            padding: 18px 60px 18px 24px;
             border: 2px solid rgba(102, 126, 234, 0.2);
             border-radius: 50px;
             font-size: 16px;
@@ -194,6 +201,73 @@
             cursor: not-allowed;
             transform: none;
             box-shadow: 0 4px 15px rgba(189, 195, 199, 0.3);
+        }
+        
+        #voiceButton {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            z-index: 2;
+        }
+        
+        #voiceButton:hover:not(:disabled) {
+            transform: translateY(-50%) scale(1.1);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        #voiceButton:active:not(:disabled) {
+            transform: translateY(-50%) scale(0.95);
+        }
+        
+        #voiceButton.listening {
+            background: linear-gradient(135deg, #ff6b6b, #feca57);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        #voiceButton.processing {
+            background: linear-gradient(135deg, #48dbfb, #0abde3);
+            animation: spin 1s linear infinite;
+        }
+        
+        #voiceButton:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: translateY(-50%);
+            box-shadow: 0 2px 8px rgba(189, 195, 199, 0.3);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { 
+                transform: translateY(-50%) scale(1); 
+                box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+            }
+            50% { 
+                transform: translateY(-50%) scale(1.1); 
+                box-shadow: 0 8px 25px rgba(255, 107, 107, 0.5);
+            }
+        }
+        
+        @keyframes spin {
+            from { 
+                transform: translateY(-50%) rotate(0deg); 
+            }
+            to { 
+                transform: translateY(-50%) rotate(360deg); 
+            }
         }
         
         .loading {
@@ -473,9 +547,19 @@
                 gap: 12px;
             }
             
+            .voice-input-container {
+                width: 100%;
+            }
+            
             #queryInput {
                 margin-bottom: 0;
                 font-size: 16px; /* Prevents zoom on iOS */
+            }
+            
+            #voiceButton {
+                width: 35px;
+                height: 35px;
+                font-size: 14px;
             }
             
             #askButton {
@@ -544,7 +628,7 @@
 <body>
     <div class="header">
         <h1>🎓 Sunmarke School Voice RAG</h1>
-        <p>Ask anything about Sunmarke School and get responses from 3 AI models!</p>
+        <p>Ask anything about Sunmarke School using voice or text - powered by 3 AI models!</p>
     </div>
     
     <div class="container">
@@ -554,15 +638,20 @@
         
         <div class="input-section">
             <div class="input-group">
-                <input type="text" 
-                       id="queryInput" 
-                       placeholder="Ask about Sunmarke School programs, facilities, admission, etc..."
-                       maxlength="500">
+                <div class="voice-input-container">
+                    <input type="text" 
+                           id="queryInput" 
+                           placeholder="Ask about Sunmarke School programs, facilities, admission, etc..."
+                           maxlength="500">
+                    <button id="voiceButton" onclick="toggleVoiceInput()" title="Click to speak your question">
+                        🎤
+                    </button>
+                </div>
                 <button id="askButton" onclick="askQuestion()">Ask AI Models</button>
             </div>
             
             <div class="examples">
-                <p style="color: #7f8c8d; margin-bottom: 10px;">💡 Try these example questions:</p>
+                <p style="color: #7f8c8d; margin-bottom: 10px;">💡 Try these example questions (type or speak!):</p>
                 <div class="example-questions">
                     <span class="example-btn" onclick="setExample('What programs does Sunmarke School offer?')">School Programs</span>
                     <span class="example-btn" onclick="setExample('How do I apply to Sunmarke School?')">Admissions</span>
@@ -584,6 +673,111 @@
     </div>
 
     <script>
+        // Voice Recognition Setup
+        let recognition = null;
+        let isListening = false;
+        
+        function initializeVoiceRecognition() {
+            if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+                recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+                
+                recognition.onstart = function() {
+                    isListening = true;
+                    const voiceBtn = document.getElementById('voiceButton');
+                    voiceBtn.classList.add('listening');
+                    voiceBtn.title = 'Listening... Speak now!';
+                    voiceBtn.innerHTML = '🔴';
+                };
+                
+                recognition.onresult = function(event) {
+                    const transcript = event.results[0][0].transcript;
+                    document.getElementById('queryInput').value = transcript;
+                    
+                    // Visual feedback for processing
+                    const voiceBtn = document.getElementById('voiceButton');
+                    voiceBtn.classList.remove('listening');
+                    voiceBtn.classList.add('processing');
+                    voiceBtn.innerHTML = '⚡';
+                    voiceBtn.title = 'Voice input received!';
+                    
+                    // Reset button after a moment
+                    setTimeout(() => {
+                        resetVoiceButton();
+                    }, 1500);
+                };
+                
+                recognition.onerror = function(event) {
+                    console.error('Speech recognition error:', event.error);
+                    let errorMsg = 'Voice input failed. ';
+                    
+                    switch(event.error) {
+                        case 'no-speech':
+                            errorMsg += 'No speech detected. Please try again.';
+                            break;
+                        case 'network':
+                            errorMsg += 'Network error. Check your connection.';
+                            break;
+                        case 'not-allowed':
+                            errorMsg += 'Microphone access denied. Please allow microphone access.';
+                            break;
+                        default:
+                            errorMsg += 'Please try again.';
+                    }
+                    
+                    alert(errorMsg);
+                    resetVoiceButton();
+                };
+                
+                recognition.onend = function() {
+                    isListening = false;
+                    if (!document.getElementById('voiceButton').classList.contains('processing')) {
+                        resetVoiceButton();
+                    }
+                };
+                
+                return true;
+            }
+            return false;
+        }
+        
+        function resetVoiceButton() {
+            const voiceBtn = document.getElementById('voiceButton');
+            voiceBtn.classList.remove('listening', 'processing');
+            voiceBtn.innerHTML = '🎤';
+            voiceBtn.title = 'Click to speak your question';
+            isListening = false;
+        }
+        
+        function toggleVoiceInput() {
+            if (!recognition) {
+                if (!initializeVoiceRecognition()) {
+                    alert('Voice recognition is not supported in this browser. Please try Chrome, Edge, or Safari.');
+                    return;
+                }
+            }
+            
+            if (isListening) {
+                recognition.stop();
+                resetVoiceButton();
+            } else {
+                try {
+                    recognition.start();
+                } catch (error) {
+                    console.error('Failed to start recognition:', error);
+                    alert('Failed to start voice recognition. Please try again.');
+                    resetVoiceButton();
+                }
+            }
+        }
+        
+        // Initialize voice recognition on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeVoiceRecognition();
+        });
+        
         // Check system status on load
         async function checkStatus() {
             const statusDiv = document.getElementById('statusInfo');
