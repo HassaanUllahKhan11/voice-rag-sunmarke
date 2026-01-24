@@ -1,21 +1,7 @@
 {
   "functions": {
     "api/index.py": {
-      "runtime": "@vercel/python"
+      "runtime": "python3.10"
     }
-  },
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/index.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/api/index.py"
-    }
-  ],
-  "env": {
-    "OPENROUTER_API_KEY": "process.env.OPENROUTER_API_KEY",
-    "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1"
   }
 }
