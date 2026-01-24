@@ -29,15 +29,23 @@ class LLMChain:
         api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
             raise ValueError("OPENROUTER_API_KEY not found in environment")
-
-        self.client = AsyncOpenAI(
-            api_key=api_key,
-            base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-            default_headers={
-                "HTTP-Referer": "https://voice-rag-sunmarke.vercel.app",
-                "X-Title": "Voice RAG Sunmarke API"
-            }
-        )
+        
+        base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+        logger.info(f"🔧 Creating AsyncOpenAI client for {name} with base_url: {base_url}")
+        
+        try:
+            self.client = AsyncOpenAI(
+                api_key=api_key,
+                base_url=base_url,
+                default_headers={
+                    "HTTP-Referer": "https://voice-rag-sunmarke.vercel.app",
+                    "X-Title": "Voice RAG Sunmarke API"
+                }
+            )
+            logger.info(f"✅ AsyncOpenAI client created successfully for {name}")
+        except Exception as client_error:
+            logger.error(f"❌ Failed to create AsyncOpenAI client for {name}: {client_error}")
+            raise
 
     async def generate(self, prompt: str) -> Dict:
         try:
@@ -101,18 +109,38 @@ class ParallelLLMQuery:
             "kimi": "moonshotai/kimi-k2-0905"
         }
         self.chains = {}
+        self.initialization_errors = {}
         
-        # Initialize each model with error handling
+        # Debug environment first
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+        logger.info(f"🔧 Initializing with API key present: {bool(api_key)}, Base URL: {base_url}")
+        
+        # Initialize each model with detailed error handling
         for key, model_name in self.models.items():
             try:
+                logger.info(f"🔄 Attempting to initialize {key} ({model_name})")
                 chain = LLMChain(name=key.title(), model_name=model_name)
                 self.chains[key] = chain
-                logger.info(f"✅ {key.title()} chain initialized: {model_name}")
+                logger.info(f"✅ {key.title()} chain initialized successfully: {model_name}")
             except Exception as e:
-                logger.error(f"❌ Failed to initialize {key}: {e}")
+                error_msg = f"Failed to initialize {key}: {str(e)}"
+                logger.error(f"❌ {error_msg}")
+                self.initialization_errors[key] = error_msg
                 continue
         
-        logger.info(f"✅ {len(self.chains)} OpenRouter LLM chains initialized")
+        logger.info(f"✅ {len(self.chains)} out of {len(self.models)} OpenRouter LLM chains initialized")
+        if self.initialization_errors:
+            logger.error(f"❌ Initialization errors: {self.initialization_errors}")
+    
+    def get_initialization_status(self):
+        """Get detailed status of model initialization."""
+        return {
+            "total_models": len(self.models),
+            "active_models": len(self.chains),
+            "active_model_names": list(self.chains.keys()),
+            "failed_models": self.initialization_errors
+        }
 
     async def query_all(self, prompt: str) -> Dict[str, Dict]:
         if not self.chains:
@@ -193,20 +221,28 @@ class handler(BaseHTTPRequestHandler):
             path = self.path
             
             if path in ["/", "/api"]:
-                # Health check with LLM status
+                # Health check with detailed LLM status
                 try:
                     parallel_query = get_parallel_query()
                     available_models = parallel_query.get_available_models()
-                    llm_status = f"LLM integration active with {len(available_models)} models: {', '.join(available_models)}"
+                    initialization_status = parallel_query.get_initialization_status()
+                    
+                    if available_models:
+                        llm_status = f"LLM integration active with {len(available_models)} models: {', '.join(available_models)}"
+                    else:
+                        llm_status = f"LLM integration failed - No models active. Check initialization_details."
+                        
                 except Exception as llm_error:
                     llm_status = f"LLM integration error: {str(llm_error)}"
                     available_models = []
+                    initialization_status = {"error": str(llm_error)}
                 
                 response_data = {
                     "status": "healthy",
                     "message": "Voice RAG API for Sunmarke School",
                     "llm_status": llm_status,
                     "available_models": available_models,
+                    "initialization_details": initialization_status,
                     "timestamp": datetime.now().isoformat(),
                     "endpoints": {
                         "GET /": "Health check and system status",
