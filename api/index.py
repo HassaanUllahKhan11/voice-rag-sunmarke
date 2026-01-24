@@ -11,9 +11,6 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
-# Add the parent directory to the path to import llm module
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from llm.chains import get_parallel_query
 
 class handler(BaseHTTPRequestHandler):
