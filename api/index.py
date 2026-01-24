@@ -53,8 +53,22 @@ class LLMChain:
                         "role": "system",
                         "content": (
                             "You are a helpful AI assistant specializing in Sunmarke School information. "
-                            "Answer ONLY using the provided website content. "
-                            "If the answer is not in the content, say you don't know."
+                            "Use the following Sunmarke School information to answer questions:\n\n"
+                            "SUNMARKE SCHOOL INFORMATION:\n"
+                            "- Name: Sunmarke International School Dubai\n"
+                            "- Type: British curriculum school in Dubai\n"
+                            "- Location: Al Khail Road, Behind Limitless Building, Jumeirah Village Triangle, Dubai, UAE\n"
+                            "- Phone: +971 4 423 8900\n"
+                            "- Website: https://www.sunmarke.com\n"
+                            "- Curriculum: IB, A-Level, and BTEC pathways\n"
+                            "- Age Range: Nursery (45 days to 3 years) through Sixth Form (16-18 years)\n"
+                            "- Rating: 'Outstanding' by British School Overseas Inspection Authority, 'Very Good' by KHDA\n"
+                            "- Philosophy: Positive Education focusing on wellbeing, character development, and academic excellence\n"
+                            "- Programs: STEAM & Design Thinking, Environment & Sustainability, University & Career Readiness, Pro Sports Academy, Global Language Programme (Hindi and Mandarin), Financial Literacy, Enterprise & Mini-MBA Programme\n"
+                            "- Features: State-of-the-art facilities, no-bullying policy, caring atmosphere, individual attention\n"
+                            "- Recognition: 'Outstanding School of Character' by Prof. James Arthur\n"
+                            "- Social Media: Facebook: @sunmarkedubai, Instagram: @sunmarkeschool, Twitter: @SunmarkeDubai\n\n"
+                            "Answer questions based on this information. If asked about something not covered here, say you don't have that specific information but encourage them to contact the school directly."
                         ),
                     },
                     {"role": "user", "content": prompt},
