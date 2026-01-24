@@ -1,7 +1,3 @@
-"""
-Voice RAG API for Vercel deployment - All-in-one file with embedded LLM logic.
-"""
-
 import json
 import os
 import asyncio
@@ -10,16 +6,12 @@ from http.server import BaseHTTPRequestHandler
 from datetime import datetime
 from typing import Dict, List
 
-# LLM dependencies
 from openai import AsyncOpenAI
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ------------------------------------------------------------------
 # LLM Chain Classes (Embedded)
-# ------------------------------------------------------------------
 class LLMChain:
     def __init__(self, name: str, model_name: str):
         self.name = name
@@ -34,7 +26,6 @@ class LLMChain:
         logger.info(f"🔧 Creating AsyncOpenAI client for {name} with base_url: {base_url}")
         
         try:
-            # Simple OpenRouter-compatible AsyncOpenAI client
             self.client = AsyncOpenAI(
                 api_key=api_key,
                 base_url=base_url
@@ -76,41 +67,20 @@ class LLMChain:
                 temperature=0.3,
                 max_tokens=1000,
             )
-
-            return {
-                "model": self.name,
-                "response": response.choices[0].message.content,
-                "error": False,
-                "timestamp": datetime.now().isoformat(),
-            }
-
+            return {"model": self.name, "response": response.choices[0].message.content, "error": False, "timestamp": datetime.now().isoformat()}
         except Exception as e:
             return self.handle_error(e)
 
     def handle_error(self, error: Exception) -> Dict:
         self.error_count += 1
         logger.error(f"{self.name} error: {error}")
-
         msg = str(error).lower()
-
-        if "402" in msg or "insufficient" in msg:
-            friendly = "Insufficient OpenRouter balance. Please add credits."
-        elif "429" in msg:
-            friendly = "Rate limit exceeded. Try again shortly."
-        elif "401" in msg:
-            friendly = "Invalid OpenRouter API key."
-        elif "404" in msg:
-            friendly = f"Model not found: {self.model_name}"
-        else:
-            friendly = str(error)
-
-        return {
-            "model": self.name,
-            "response": friendly,
-            "error": True,
-            "timestamp": datetime.now().isoformat(),
-        }
-
+        if "402" in msg or "insufficient" in msg: friendly = "Insufficient OpenRouter balance. Please add credits."
+        elif "429" in msg: friendly = "Rate limit exceeded. Try again shortly."
+        elif "401" in msg: friendly = "Invalid OpenRouter API key."
+        elif "404" in msg: friendly = f"Model not found: {self.model_name}"
+        else: friendly = str(error)
+        return {"model": self.name, "response": friendly, "error": True, "timestamp": datetime.now().isoformat()}
 
 class ParallelLLMQuery:
     def __init__(self):
@@ -122,12 +92,10 @@ class ParallelLLMQuery:
         self.chains = {}
         self.initialization_errors = {}
         
-        # Debug environment first
         api_key = os.getenv("OPENROUTER_API_KEY")
         base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
         logger.info(f"🔧 Initializing with API key present: {bool(api_key)}, Base URL: {base_url}")
         
-        # Initialize each model with detailed error handling
         for key, model_name in self.models.items():
             try:
                 logger.info(f"🔄 Attempting to initialize {key} ({model_name})")
@@ -145,141 +113,124 @@ class ParallelLLMQuery:
             logger.error(f"❌ Initialization errors: {self.initialization_errors}")
     
     def get_initialization_status(self):
-        """Get detailed status of model initialization."""
-        return {
-            "total_models": len(self.models),
-            "active_models": len(self.chains),
-            "active_model_names": list(self.chains.keys()),
-            "failed_models": self.initialization_errors
-        }
+        return {"total_models": len(self.models), "active_models": len(self.chains), "active_model_names": list(self.chains.keys()), "failed_models": self.initialization_errors}
 
     async def query_all(self, prompt: str) -> Dict[str, Dict]:
-        if not self.chains:
-            return {"error": "No LLM chains available"}
-            
-        tasks = {
-            name: chain.generate(prompt)
-            for name, chain in self.chains.items()
-        }
-
+        if not self.chains: return {"error": "No LLM chains available"}
+        tasks = {name: chain.generate(prompt) for name, chain in self.chains.items()}
         results = await asyncio.gather(*tasks.values(), return_exceptions=True)
-
         output = {}
         for (name, _), result in zip(tasks.items(), results):
-            if isinstance(result, Exception):
-                output[name] = {
-                    "model": name,
-                    "response": str(result),
-                    "error": True,
-                    "timestamp": datetime.now().isoformat(),
-                }
-            else:
-                output[name] = result
-
+            if isinstance(result, Exception): output[name] = {"model": name, "response": str(result), "error": True, "timestamp": datetime.now().isoformat()}
+            else: output[name] = result
         return output
 
-    def get_available_models(self) -> List[str]:
-        return list(self.chains.keys())
+    def get_available_models(self) -> List[str]: return list(self.chains.keys())
 
-
-# Global LLM instance
 _parallel_query = None
-
 def get_parallel_query() -> ParallelLLMQuery:
     global _parallel_query
-    if _parallel_query is None:
-        _parallel_query = ParallelLLMQuery()
+    if _parallel_query is None: _parallel_query = ParallelLLMQuery()
     return _parallel_query
 
-
-# ------------------------------------------------------------------
 # HTTP Handler
-# ------------------------------------------------------------------
 class handler(BaseHTTPRequestHandler):
     def _set_cors_headers(self):
-        """Set CORS headers."""
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
     
     def _send_json_response(self, status_code, data):
-        """Send JSON response."""
         self.send_response(status_code)
         self.send_header('Content-Type', 'application/json')
         self._set_cors_headers()
         self.end_headers()
-        
         response_json = json.dumps(data, indent=2)
         self.wfile.write(response_json.encode())
     
     def _send_error_response(self, status_code, message):
-        """Send error response."""
-        error_data = {
-            "error": message,
-            "timestamp": datetime.now().isoformat()
-        }
+        error_data = {"error": message, "timestamp": datetime.now().isoformat()}
         self._send_json_response(status_code, error_data)
     
     def do_OPTIONS(self):
-        """Handle CORS preflight requests."""
         self.send_response(200)
         self._set_cors_headers()
         self.end_headers()
     
     def do_GET(self):
-        """Handle GET requests."""
         try:
             path = self.path
-            
             if path == "/":
-                # Serve the web interface
+                html_path = os.path.join(os.path.dirname(__file__), "chat.html")
                 try:
-                    # Read the HTML file
-                    html_path = os.path.join(os.path.dirname(__file__), "chat.html")
-                    with open(html_path, 'r', encoding='utf-8') as f:
+                    with open(html_path, 'r', encoding='utf-8') as f: 
                         html_content = f.read()
-                    
                     self.send_response(200)
                     self.send_header('Content-Type', 'text/html')
                     self._set_cors_headers()
                     self.end_headers()
                     self.wfile.write(html_content.encode())
-                    
-                except Exception as e:
-                    self._send_error_response(500, f"Failed to load web interface: {str(e)}")
-                
+                except FileNotFoundError:
+                    # Fallback: serve status info if HTML not found
+                    try:
+                        parallel_query = get_parallel_query()
+                        available_models = parallel_query.get_available_models()
+                        initialization_status = parallel_query.get_initialization_status()
+                        
+                        if available_models: 
+                            llm_status = f"✅ RAG System Ready! {len(available_models)} AI models active: {', '.join(available_models)}"
+                        else: 
+                            llm_status = "❌ RAG system failed - No models active. Check initialization_details."
+                            
+                        response_data = {
+                            "status": "healthy", 
+                            "message": "🎓 Sunmarke School Voice RAG System", 
+                            "llm_status": llm_status, 
+                            "available_models": available_models, 
+                            "initialization_details": initialization_status, 
+                            "timestamp": datetime.now().isoformat(), 
+                            "note": "✨ RAG system now has embedded Sunmarke School knowledge!",
+                            "endpoints": {
+                                "GET /": "Voice RAG web interface (HTML not found, showing status)", 
+                                "GET /api or /status": "API health check and system status", 
+                                "POST /query": "Process Voice RAG queries about Sunmarke School", 
+                                "GET /models": "List available LLM models"
+                            }, 
+                            "environment_check": {
+                                "openrouter_key": "Present" if os.getenv("OPENROUTER_API_KEY") else "Missing - Set in Vercel Dashboard", 
+                                "openrouter_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+                            }
+                        }
+                        self._send_json_response(200, response_data)
+                    except Exception as llm_error:
+                        self._send_error_response(500, f"System initialization error: {str(llm_error)}")
+                        
             elif path in ["/api", "/status"]:
-                # API Health check with detailed LLM status
                 try:
                     parallel_query = get_parallel_query()
                     available_models = parallel_query.get_available_models()
                     initialization_status = parallel_query.get_initialization_status()
-                    
-                    if available_models:
-                        llm_status = f"LLM integration active with {len(available_models)} models: {', '.join(available_models)}"
-                    else:
-                        llm_status = f"LLM integration failed - No models active. Check initialization_details."
-                        
+                    if available_models: llm_status = f"✅ RAG System Ready! {len(available_models)} AI models active: {', '.join(available_models)}"
+                    else: llm_status = f"❌ RAG system failed - No models active. Check initialization_details."
                 except Exception as llm_error:
-                    llm_status = f"LLM integration error: {str(llm_error)}"
-                    available_models = []
-                    initialization_status = {"error": str(llm_error)}
-                
+                    llm_status = f"RAG system error: {str(llm_error)}"; available_models = []; initialization_status = {"error": str(llm_error)}
+                    
                 response_data = {
-                    "status": "healthy",
-                    "message": "Voice RAG API for Sunmarke School",
-                    "llm_status": llm_status,
-                    "available_models": available_models,
-                    "initialization_details": initialization_status,
-                    "timestamp": datetime.now().isoformat(),
+                    "status": "healthy", 
+                    "message": "🎓 Sunmarke School Voice RAG System", 
+                    "llm_status": llm_status, 
+                    "available_models": available_models, 
+                    "initialization_details": initialization_status, 
+                    "timestamp": datetime.now().isoformat(), 
+                    "note": "✨ RAG system now has embedded Sunmarke School knowledge!",
                     "endpoints": {
-                        "GET /": "Web interface for Voice RAG system",
-                        "GET /api": "API health check and system status",
-                        "POST /query": "Process Voice RAG queries about Sunmarke School",
+                        "GET /": "Web interface for Voice RAG system", 
+                        "GET /api": "API health check and system status", 
+                        "POST /query": "Process Voice RAG queries about Sunmarke School", 
                         "GET /models": "List available LLM models"
-                    },
+                    }, 
                     "environment_check": {
-                        "openrouter_key": "Present" if os.getenv("OPENROUTER_API_KEY") else "Missing - Set in Vercel Dashboard",
+                        "openrouter_key": "Present" if os.getenv("OPENROUTER_API_KEY") else "Missing - Set in Vercel Dashboard", 
                         "openrouter_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
                     }
                 }
@@ -289,99 +240,77 @@ class handler(BaseHTTPRequestHandler):
                 try:
                     parallel_query = get_parallel_query()
                     models = parallel_query.get_available_models()
-                    
-                    response_data = {
-                        "available_models": models,
-                        "total_count": len(models),
-                        "timestamp": datetime.now().isoformat()
-                    }
+                    response_data = {"available_models": models, "total_count": len(models), "timestamp": datetime.now().isoformat()}
                     self._send_json_response(200, response_data)
-                except Exception as e:
+                except Exception as e: 
                     self._send_error_response(500, f"Failed to get models: {str(e)}")
-                
-            else:
+            else: 
                 self._send_error_response(404, f"Endpoint not found: {path}")
-                
-        except Exception as e:
+        except Exception as e: 
             self._send_error_response(500, f"Internal server error: {str(e)}")
     
     def do_POST(self):
-        """Handle POST requests."""
         try:
             path = self.path
-            
             if path in ["/query", "/api/query"]:
-                # Read request body
                 content_length = int(self.headers.get('Content-Length', 0))
-                if content_length == 0:
-                    self._send_error_response(400, "Request body is required")
+                if content_length == 0: 
+                    self._send_error_response(400, "Request body is required"); 
                     return
-                
+                    
                 post_data = self.rfile.read(content_length)
-                try:
+                try: 
                     request_data = json.loads(post_data.decode())
-                except json.JSONDecodeError:
-                    self._send_error_response(400, "Invalid JSON in request body")
+                except json.JSONDecodeError: 
+                    self._send_error_response(400, "Invalid JSON in request body"); 
                     return
-                
+                    
                 query = request_data.get("query", "").strip()
-                if not query:
-                    self._send_error_response(400, "Query cannot be empty. Please ask something about Sunmarke School.")
+                if not query: 
+                    self._send_error_response(400, "Query cannot be empty. Please ask something about Sunmarke School."); 
                     return
-                
-                # Check environment variables
-                if not os.getenv("OPENROUTER_API_KEY"):
-                    self._send_error_response(500, "OpenRouter API key not configured. Please set OPENROUTER_API_KEY in Vercel Dashboard.")
+                    
+                if not os.getenv("OPENROUTER_API_KEY"): 
+                    self._send_error_response(500, "OpenRouter API key not configured. Please set OPENROUTER_API_KEY in Vercel Dashboard."); 
                     return
-                
-                # Process with LLM
+                    
                 try:
-                    # Enhanced query for better context
-                    enhanced_query = f"""Using the Sunmarke School website content, please answer: {query}
-                    
-                    If the information is not in the content, please say so clearly."""
-                    
-                    # Get the parallel query instance
+                    enhanced_query = f"""Using the Sunmarke School information provided, please answer: {query}
+
+If the answer requires specific details not in the provided information, please say so and suggest contacting the school directly at +971 4 423 8900 or visiting sunmarke.com."""
                     parallel_query = get_parallel_query()
                     
-                    # Handle asyncio for serverless
-                    try:
+                    try: 
                         results = asyncio.run(parallel_query.query_all(enhanced_query))
                     except RuntimeError as e:
                         if "cannot be called from a running event loop" in str(e):
-                            # Handle nested event loop issue
                             import concurrent.futures
                             with concurrent.futures.ThreadPoolExecutor() as executor:
                                 future = executor.submit(asyncio.run, parallel_query.query_all(enhanced_query))
                                 results = future.result(timeout=30)
-                        else:
+                        else: 
                             raise e
-                    
+                            
                     response_data = {
-                        "query": query,
-                        "results": results,
-                        "timestamp": datetime.now().isoformat(),
-                        "total_models": len(results) if isinstance(results, dict) else 0,
-                        "note": "Responses based on Sunmarke School website content"
+                        "query": query, 
+                        "results": results, 
+                        "timestamp": datetime.now().isoformat(), 
+                        "total_models": len(results) if isinstance(results, dict) else 0, 
+                        "note": "✨ Responses based on embedded Sunmarke School knowledge base"
                     }
                     self._send_json_response(200, response_data)
-                    
                 except Exception as llm_error:
-                    # Fallback response if LLM fails
                     response_data = {
-                        "query": query,
-                        "error": f"LLM processing failed: {str(llm_error)}",
-                        "fallback_response": "I apologize, but I'm experiencing technical difficulties accessing the LLM models. Please ensure the OpenRouter API key is properly configured.",
+                        "query": query, 
+                        "error": f"LLM processing failed: {str(llm_error)}", 
+                        "fallback_response": "I apologize, but I'm experiencing technical difficulties accessing the AI models. Please ensure the OpenRouter API key is properly configured, or contact Sunmarke School directly at +971 4 423 8900.", 
                         "timestamp": datetime.now().isoformat()
                     }
                     self._send_json_response(500, response_data)
-                
-            else:
+            else: 
                 self._send_error_response(404, f"POST endpoint not found: {path}")
-                
-        except Exception as e:
+        except Exception as e: 
             self._send_error_response(500, f"Query processing failed: {str(e)}")
     
-    def log_message(self, format, *args):
-        """Override to reduce log noise."""
+    def log_message(self, format, *args): 
         return
