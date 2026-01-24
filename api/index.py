@@ -1,13 +1,161 @@
 """
-Voice RAG API for Vercel deployment with robust error handling.
+Voice RAG API for Vercel deployment - All-in-one file with embedded LLM logic.
 """
 
 import json
 import os
-import sys
+import asyncio
+import logging
 from http.server import BaseHTTPRequestHandler
 from datetime import datetime
+from typing import Dict, List
 
+# LLM dependencies
+from openai import AsyncOpenAI
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ------------------------------------------------------------------
+# LLM Chain Classes (Embedded)
+# ------------------------------------------------------------------
+class LLMChain:
+    def __init__(self, name: str, model_name: str):
+        self.name = name
+        self.model_name = model_name
+        self.error_count = 0
+
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        if not api_key:
+            raise ValueError("OPENROUTER_API_KEY not found in environment")
+
+        self.client = AsyncOpenAI(
+            api_key=api_key,
+            base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+            default_headers={
+                "HTTP-Referer": "https://voice-rag-sunmarke.vercel.app",
+                "X-Title": "Voice RAG Sunmarke API"
+            }
+        )
+
+    async def generate(self, prompt: str) -> Dict:
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a helpful AI assistant specializing in Sunmarke School information. "
+                            "Answer ONLY using the provided website content. "
+                            "If the answer is not in the content, say you don't know."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.3,
+                max_tokens=1000,
+            )
+
+            return {
+                "model": self.name,
+                "response": response.choices[0].message.content,
+                "error": False,
+                "timestamp": datetime.now().isoformat(),
+            }
+
+        except Exception as e:
+            return self.handle_error(e)
+
+    def handle_error(self, error: Exception) -> Dict:
+        self.error_count += 1
+        logger.error(f"{self.name} error: {error}")
+
+        msg = str(error).lower()
+
+        if "402" in msg or "insufficient" in msg:
+            friendly = "Insufficient OpenRouter balance. Please add credits."
+        elif "429" in msg:
+            friendly = "Rate limit exceeded. Try again shortly."
+        elif "401" in msg:
+            friendly = "Invalid OpenRouter API key."
+        elif "404" in msg:
+            friendly = f"Model not found: {self.model_name}"
+        else:
+            friendly = str(error)
+
+        return {
+            "model": self.name,
+            "response": friendly,
+            "error": True,
+            "timestamp": datetime.now().isoformat(),
+        }
+
+
+class ParallelLLMQuery:
+    def __init__(self):
+        self.models = {
+            "gemini": "google/gemini-2.5-flash",
+            "deepseek": "deepseek/deepseek-r1-0528:free", 
+            "kimi": "moonshotai/kimi-k2-0905"
+        }
+        self.chains = {}
+        
+        # Initialize each model with error handling
+        for key, model_name in self.models.items():
+            try:
+                chain = LLMChain(name=key.title(), model_name=model_name)
+                self.chains[key] = chain
+                logger.info(f"✅ {key.title()} chain initialized: {model_name}")
+            except Exception as e:
+                logger.error(f"❌ Failed to initialize {key}: {e}")
+                continue
+        
+        logger.info(f"✅ {len(self.chains)} OpenRouter LLM chains initialized")
+
+    async def query_all(self, prompt: str) -> Dict[str, Dict]:
+        if not self.chains:
+            return {"error": "No LLM chains available"}
+            
+        tasks = {
+            name: chain.generate(prompt)
+            for name, chain in self.chains.items()
+        }
+
+        results = await asyncio.gather(*tasks.values(), return_exceptions=True)
+
+        output = {}
+        for (name, _), result in zip(tasks.items(), results):
+            if isinstance(result, Exception):
+                output[name] = {
+                    "model": name,
+                    "response": str(result),
+                    "error": True,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            else:
+                output[name] = result
+
+        return output
+
+    def get_available_models(self) -> List[str]:
+        return list(self.chains.keys())
+
+
+# Global LLM instance
+_parallel_query = None
+
+def get_parallel_query() -> ParallelLLMQuery:
+    global _parallel_query
+    if _parallel_query is None:
+        _parallel_query = ParallelLLMQuery()
+    return _parallel_query
+
+
+# ------------------------------------------------------------------
+# HTTP Handler
+# ------------------------------------------------------------------
 class handler(BaseHTTPRequestHandler):
     def _set_cors_headers(self):
         """Set CORS headers."""
@@ -45,9 +193,8 @@ class handler(BaseHTTPRequestHandler):
             path = self.path
             
             if path in ["/", "/api"]:
-                # Try to import and initialize LLM chains
+                # Health check with LLM status
                 try:
-                    from llm.chains import get_parallel_query
                     parallel_query = get_parallel_query()
                     available_models = parallel_query.get_available_models()
                     llm_status = f"LLM integration active with {len(available_models)} models: {', '.join(available_models)}"
@@ -68,14 +215,13 @@ class handler(BaseHTTPRequestHandler):
                     },
                     "environment_check": {
                         "openrouter_key": "Present" if os.getenv("OPENROUTER_API_KEY") else "Missing - Set in Vercel Dashboard",
-                        "openrouter_url": os.getenv("OPENROUTER_BASE_URL", "Not set")
+                        "openrouter_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
                     }
                 }
                 self._send_json_response(200, response_data)
                 
             elif path in ["/models", "/api/models"]:
                 try:
-                    from llm.chains import get_parallel_query
                     parallel_query = get_parallel_query()
                     models = parallel_query.get_available_models()
                     
@@ -123,11 +269,8 @@ class handler(BaseHTTPRequestHandler):
                     self._send_error_response(500, "OpenRouter API key not configured. Please set OPENROUTER_API_KEY in Vercel Dashboard.")
                     return
                 
-                # Try to process with LLM
+                # Process with LLM
                 try:
-                    from llm.chains import get_parallel_query
-                    import asyncio
-                    
                     # Enhanced query for better context
                     enhanced_query = f"""Using the Sunmarke School website content, please answer: {query}
                     
@@ -136,27 +279,24 @@ class handler(BaseHTTPRequestHandler):
                     # Get the parallel query instance
                     parallel_query = get_parallel_query()
                     
-                    # Run async function in sync context for serverless
+                    # Handle asyncio for serverless
                     try:
-                        # Try to get existing event loop
-                        loop = asyncio.get_event_loop()
-                        if loop.is_running():
-                            # Create new loop if current one is running
+                        results = asyncio.run(parallel_query.query_all(enhanced_query))
+                    except RuntimeError as e:
+                        if "cannot be called from a running event loop" in str(e):
+                            # Handle nested event loop issue
                             import concurrent.futures
                             with concurrent.futures.ThreadPoolExecutor() as executor:
                                 future = executor.submit(asyncio.run, parallel_query.query_all(enhanced_query))
                                 results = future.result(timeout=30)
                         else:
-                            results = loop.run_until_complete(parallel_query.query_all(enhanced_query))
-                    except RuntimeError:
-                        # No event loop, create new one
-                        results = asyncio.run(parallel_query.query_all(enhanced_query))
+                            raise e
                     
                     response_data = {
                         "query": query,
                         "results": results,
                         "timestamp": datetime.now().isoformat(),
-                        "total_models": len(results),
+                        "total_models": len(results) if isinstance(results, dict) else 0,
                         "note": "Responses based on Sunmarke School website content"
                     }
                     self._send_json_response(200, response_data)
@@ -166,7 +306,7 @@ class handler(BaseHTTPRequestHandler):
                     response_data = {
                         "query": query,
                         "error": f"LLM processing failed: {str(llm_error)}",
-                        "fallback_response": "I apologize, but I'm experiencing technical difficulties accessing the LLM models. Please ensure the OpenRouter API key is properly configured in the Vercel environment variables.",
+                        "fallback_response": "I apologize, but I'm experiencing technical difficulties accessing the LLM models. Please ensure the OpenRouter API key is properly configured.",
                         "timestamp": datetime.now().isoformat()
                     }
                     self._send_json_response(500, response_data)
