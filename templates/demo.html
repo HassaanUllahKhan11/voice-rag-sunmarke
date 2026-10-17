@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ site.name }} AI Assistant</title>
+  <meta name="description" content="A live AI assistant demo built from {{ site.url | domain }}.">
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
+  <style>:root { --accent: {{ site.color }}; --on-accent: {{ site.color | on_accent }}; }</style>
+</head>
+<body>
+  <header class="wrap masthead">
+    <span><span class="marker" aria-hidden="true"></span><b>Website AI Assistant</b></span>
+    <span>{% if owner.name %}By {{ owner.name }} · {% endif %}{{ site.built }}</span>
+  </header>
+
+  <main>
+    <section class="wrap hero">
+      <div class="hero-copy">
+        <p class="kicker">A working demo, not a mockup</p>
+        <h1>Ask {{ site.name }}’s website <em>anything.</em></h1>
+        <p class="lede">
+          This assistant has already read <strong>{{ site.url | domain }}</strong>. It answers visitors’ questions
+          day and night, by text or voice, and only says what your website says.
+        </p>
+
+        <ul class="facts">
+          <li><b>{{ site.pages }}</b><span>pages read</span></li>
+          <li><b>24/7</b><span>always answering</span></li>
+          <li><b>1 line</b><span>to install</span></li>
+        </ul>
+
+        <p class="prompts-label">Try one of these, or type your own:</p>
+        <ul class="prompts">
+          {% for q in site.suggestions %}<li><button type="button" data-q="{{ q }}">{{ q }}</button></li>{% endfor %}
+        </ul>
+      </div>
+
+      <div class="chat-frame" id="assistant" aria-label="{{ site.name }} assistant"></div>
+    </section>
+
+    <section class="wrap section section-grid">
+      <div class="section-head">
+        <h2>What it read</h2>
+        <p>Every answer comes from these pages on your site, and each reply links back to its source.</p>
+      </div>
+      <ol class="pages">
+        {% for p in pages[:14] %}
+        <li><span><a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.title }}</a><small>{{ p.path }}</small></span></li>
+        {% endfor %}
+        {% if pages | length > 14 %}<li class="more"><span>{{ pages | length - 14 }} more pages</span></li>{% endif %}
+      </ol>
+    </section>
+
+    <section class="wrap section section-grid">
+      <div class="section-head">
+        <h2>Why it pays for itself</h2>
+        <p>Most visitors leave when they can’t find an answer in a few seconds.</p>
+      </div>
+      <ol class="reasons">
+        <li><div><h3>Answers after hours</h3><p>Questions at 11pm get an answer at 11pm, instead of a visitor quietly trying the next result on Google.</p></div></li>
+        <li><div><h3>Fewer repeat calls and emails</h3><p>Fees, timings, location and “how do I sign up” are handled without staff time.</p></div></li>
+        <li><div><h3>Says only what you’ve published</h3><p>It never invents prices or policies. When it doesn’t know, it points people to your contact details.</p></div></li>
+      </ol>
+    </section>
+
+    <section class="wrap section section-grid">
+      <div class="section-head">
+        <h2>Live in an afternoon</h2>
+        <p>One line added to your site. Nothing to install or maintain on your side.</p>
+      </div>
+      <div>
+        <pre class="snippet"><span class="tag">&lt;script</span> src="{{ host }}/widget.js"
+        data-site="{{ site.slug }}"<span class="tag">&gt;&lt;/script&gt;</span></pre>
+        <p class="works-with">Works with WordPress, Wix, Squarespace, Shopify and custom sites. It can also answer on WhatsApp or take bookings.</p>
+      </div>
+    </section>
+
+    {% if owner.name %}
+    <section class="wrap cta-band">
+      <p class="display">Want this on {{ site.url | domain }}?</p>
+      <div class="cta-row">
+        {% if owner.link %}<a class="button" href="{{ owner.link }}" target="_blank" rel="noopener">Book a 15-minute call</a>{% endif %}
+        {% if owner.email %}<a {% if not owner.link %}class="button" {% endif %}href="mailto:{{ owner.email }}?subject={{ ('AI assistant for ' ~ site.name) | urlencode }}">{% if owner.link %}or email {{ owner.email }}{% else %}Email {{ owner.name.split()[0] }}{% endif %}</a>{% endif %}
+      </div>
+      <p class="signature">I’m <b>{{ owner.name }}</b>. I build AI assistants and data tools for small businesses. Setup takes a few days, and I tune the answers with you before anything goes live.</p>
+    </section>
+    {% endif %}
+  </main>
+
+  <footer class="wrap footnote">
+    <p>Demo built from {{ site.name }}’s public website on {{ site.built }}. Not affiliated with or endorsed by {{ site.name }}. Answers can be incomplete; a live version is reviewed with you first.</p>
+  </footer>
+
+  <script src="{{ host }}/widget.js" data-site="{{ site.slug }}" data-mode="inline" data-target="#assistant" defer></script>
+  <script>
+    // Prompt rows ask the inline assistant directly.
+    document.querySelectorAll(".prompts button").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (window.assistantAsk) window.assistantAsk(btn.dataset.q);
+        if (window.matchMedia("(max-width: 959px)").matches) {
+          document.getElementById("assistant").scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    });
+  </script>
+</body>
+</html>

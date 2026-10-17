@@ -1,0 +1,9 @@
+{
+  "functions": {
+    "api/index.py": {
+      "includeFiles": "{app.py,assistant/**,data/**,templates/**,static/**}",
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+}

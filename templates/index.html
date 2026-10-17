@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Website AI Assistant</title>
+  <meta name="description" content="AI assistants that answer your website visitors from your own content, by text or voice.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
+</head>
+<body>
+  <header class="wrap masthead">
+    <span><span class="marker" aria-hidden="true"></span><b>Website AI Assistant</b></span>
+    <span>{% if owner.name %}{{ owner.name }}{% endif %}</span>
+  </header>
+
+  <main>
+    <section class="wrap section-grid intro">
+      <div>
+        <p class="kicker">For small businesses</p>
+        <h1>Your website, <em>answering</em> every visitor.</h1>
+      </div>
+      <div class="intro-aside">
+        <p class="lede">
+          An assistant that reads your website and answers visitors’ questions from it: fees, hours, location,
+          services, how to book. It works by text or voice, links to its sources, and installs with one line.
+        </p>
+      </div>
+    </section>
+
+    <section class="wrap section section-grid">
+      <div class="section-head">
+        <h2>Live demos</h2>
+        <p>Each one was built from a real public website. Open one and ask it something.</p>
+      </div>
+      {% if sites %}
+      <ul class="demos">
+        {% for s in sites %}
+        <li style="--site: {{ s.color }}">
+          <a href="/demo/{{ s.slug }}">
+            <span class="name"><span class="swatch" aria-hidden="true"></span>{{ s.name }}</span>
+            <span class="go">Open demo →</span>
+            <span class="meta">{{ s.url | domain }} · {{ s.pages }} pages read · {{ s.built }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p>No demos yet. Build one with <code>python ingest.py https://example.com --name "Example"</code>.</p>
+      {% endif %}
+    </section>
+
+    <section class="wrap section section-grid">
+      <div class="section-head">
+        <h2>How it works</h2>
+      </div>
+      <ol class="reasons">
+        <li><div><h3>It reads your site</h3><p>Every public page, politely and within your robots.txt rules. Contact details are pulled out so they’re always findable.</p></div></li>
+        <li><div><h3>It finds the right passage</h3><p>Each question is matched to the most relevant parts of your pages, in milliseconds.</p></div></li>
+        <li><div><h3>It answers from those words only</h3><p>An AI model writes a short, friendly answer from those passages and cites the page it came from.</p></div></li>
+      </ol>
+    </section>
+
+    <section class="wrap section section-grid">
+      <div class="section-head">
+        <h2>Install</h2>
+        <p>Paste before <code>&lt;/body&gt;</code> on any site.</p>
+      </div>
+      <pre class="snippet"><span class="tag">&lt;script</span> src="{{ host }}/widget.js" data-site="your-business"<span class="tag">&gt;&lt;/script&gt;</span></pre>
+    </section>
+  </main>
+
+  <footer class="wrap footnote">
+    <p>{% if owner.email %}<a href="mailto:{{ owner.email }}">{{ owner.email }}</a>{% else %}Website AI Assistant{% endif %}</p>
+  </footer>
+</body>
+</html>
