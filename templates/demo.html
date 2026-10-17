@@ -107,6 +107,13 @@
         }
       });
     });
+
+    // /demo/<slug>?q=What+are+your+fees%3F opens with that question already asked,
+    // so an outreach email can link straight to an answer.
+    document.addEventListener("DOMContentLoaded", function () {
+      var q = new URLSearchParams(location.search).get("q");
+      if (q && window.assistantAsk) window.assistantAsk(q.slice(0, 500));
+    });
   </script>
 </body>
 </html>

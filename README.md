@@ -25,7 +25,7 @@ python ingest.py https://www.sunmarke.com --name "Sunmarke School" --color "#7c3
 python app.py
 ```
 
-Open http://localhost:5000/demo/sunmarke-school.
+Open http://localhost:5000/demo/sunmarke-school. Add `?q=Where+is+the+school+located%3F` to open a demo with a question already answered, which is handy for outreach emails.
 
 ### Build an assistant for a new business
 
